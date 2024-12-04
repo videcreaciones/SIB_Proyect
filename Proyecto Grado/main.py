@@ -7,39 +7,56 @@ def calculate_distance(point1, point2):
     """Calcula la distancia euclidiana entre dos puntos"""
     return sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
-def check_fingers_up(hand_landmarks, height, width):
-    """Chequea si todos los dedos excepto el pulgar están levantados"""
-    fingertips_ids = [8, 12, 16, 20]  # Índices de las yemas de los dedos (índice, medio, anular, meñique)
-    for id in fingertips_ids:
-        if hand_landmarks.landmark[id].y * height > hand_landmarks.landmark[id - 2].y * height:
-            return False
-    return True
+def is_shaka_gesture(hand_landmarks, width, height):
+    """Detecta si la mano hace la seña 🤙."""
+    thumb_tip = hand_landmarks.landmark[4]
+    thumb_base = hand_landmarks.landmark[2]
+    pinky_tip = hand_landmarks.landmark[20]
+    pinky_base = hand_landmarks.landmark[18]
+    index_tip = hand_landmarks.landmark[8]
+    middle_tip = hand_landmarks.landmark[12]
+    ring_tip = hand_landmarks.landmark[16]
 
-# Factor de conversión de píxeles a centímetros (ajusta este valor según tu calibración)
-FACTOR_CM_PER_PIXEL = 0.05
+    # Convertir a píxeles
+    thumb_tip = (int(thumb_tip.x * width), int(thumb_tip.y * height))
+    pinky_tip = (int(pinky_tip.x * width), int(pinky_tip.y * height))
+    thumb_base = (int(thumb_base.x * width), int(thumb_base.y * height))
+    pinky_base = (int(pinky_base.x * width), int(pinky_base.y * height))
 
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
+    # Verificar si pulgar y meñique están extendidos
+    thumb_extended = thumb_tip[1] < thumb_base[1]
+    pinky_extended = pinky_tip[1] < pinky_base[1]
+
+    # Verificar si los otros dedos están doblados
+    index_bent = hand_landmarks.landmark[8].y > hand_landmarks.landmark[5].y
+    middle_bent = hand_landmarks.landmark[12].y > hand_landmarks.landmark[9].y
+    ring_bent = hand_landmarks.landmark[16].y > hand_landmarks.landmark[13].y
+
+    return thumb_extended and pinky_extended and index_bent and middle_bent and ring_bent
+
+# Parámetros
+SMOOTHING_FACTOR = 0.35
+CANVAS_SIZE = (1200, 1800, 3)  # Tamaño del lienzo (alto, ancho, canales)
+VIEWPORT_SIZE = (480, 640)  # Tamaño del área visible
+PROXIMITY_THRESHOLD = 30  # Umbral para los dedos índice y medio
+SCROLL_STEP = 20  # Paso de desplazamiento
+
+# Inicializar lienzo y variables
+canvas = np.ones(CANVAS_SIZE, dtype=np.uint8) * 255  # Lienzo blanco
+viewport_top_left = [0, 0]  # Coordenadas de la esquina superior izquierda del área visible
+is_drawing = False
+last_point = None
+start_point = None
+last_hand_center = None
+
 mp_hands = mp.solutions.hands
 
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-# Puntos de interés en la mano
-index_finger_tip = 8  # Índice de la yema del dedo índice en MediaPipe
-middle_finger_tip = 12  # Índice de la yema del dedo medio en MediaPipe
-
-# Inicializar variables para el dibujo
-is_drawing = False
-is_erasing = False
-last_point = None
-
-# Crear una imagen en blanco para dibujar
-drawing_board = np.zeros((480, 640, 3), dtype=np.uint8)
-
 with mp_hands.Hands(
         model_complexity=1,
         max_num_hands=1,
-        min_detection_confidence=0.5,
+        min_detection_confidence=0.9,
         min_tracking_confidence=0.5) as hands:
     while True:
         ret, frame = cap.read()
@@ -50,74 +67,86 @@ with mp_hands.Hands(
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
 
+        # Procesar resultados de detección
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Obtener las coordenadas de las yemas de los dedos índice y medio
-                index_finger_coords = (int(hand_landmarks.landmark[index_finger_tip].x * width),
-                                       int(hand_landmarks.landmark[index_finger_tip].y * height))
-                middle_finger_coords = (int(hand_landmarks.landmark[middle_finger_tip].x * width),
-                                        int(hand_landmarks.landmark[middle_finger_tip].y * height))
+                # Detectar la seña 🤙
+                if is_shaka_gesture(hand_landmarks, width, height):
+                    hand_center_x = int(hand_landmarks.landmark[9].x * width)
+                    hand_center_y = int(hand_landmarks.landmark[9].y * height)
 
-                # Calcular la distancia en píxeles entre el índice y el medio
-                distance_px = calculate_distance(index_finger_coords, middle_finger_coords)
+                    if last_hand_center is not None:
+                        dx = hand_center_x - last_hand_center[0]
+                        dy = hand_center_y - last_hand_center[1]
+                        viewport_top_left[0] = np.clip(viewport_top_left[0] - dx, 0, CANVAS_SIZE[1] - VIEWPORT_SIZE[1])
+                        viewport_top_left[1] = np.clip(viewport_top_left[1] - dy, 0, CANVAS_SIZE[0] - VIEWPORT_SIZE[0])
 
-                # Convertir la distancia a centímetros
-                distance_cm = distance_px * FACTOR_CM_PER_PIXEL
+                    last_hand_center = (hand_center_x, hand_center_y)
+                else:
+                    last_hand_center = None
 
-                # Imprimir la distancia en la consola en centímetros
-                print(f'Distancia entre índice y medio: {distance_cm:.2f} cm')
+                # Coordenadas del índice y medio
+                index_coords = (int(hand_landmarks.landmark[8].x * width),
+                                int(hand_landmarks.landmark[8].y * height))
+                middle_coords = (int(hand_landmarks.landmark[12].x * width),
+                                 int(hand_landmarks.landmark[12].y * height))
 
-                # Dibujar las coordenadas de los dedos
-                cv2.circle(frame, index_finger_coords, 5, (255, 0, 0), -1)  # Azul
-                cv2.circle(frame, middle_finger_coords, 5, (0, 0, 255), -1)  # Rojo
+                # Calcular distancia entre índice y medio
+                distance = calculate_distance(index_coords, middle_coords)
 
-                # Mostrar la distancia en la pantalla en centímetros
-                cv2.putText(frame, f'Distancia: {distance_cm:.2f} cm',
-                            (index_finger_coords[0], index_finger_coords[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-                # Dibujar conexiones de la mano
-                mp_drawing.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    mp_hands.HAND_CONNECTIONS,
-                    mp_drawing_styles.get_default_hand_landmarks_style(),
-                    mp_drawing_styles.get_default_hand_connections_style())
-
-                # Verificar si todos los dedos menos el pulgar están levantados
-                all_fingers_up = check_fingers_up(hand_landmarks, height, width)
-
-                # Activar o desactivar el dibujo según la distancia y los dedos levantados
-                if all_fingers_up:
-                    is_drawing = False
-                    is_erasing = True
-                    print("Borrador activado")
-                elif distance_cm < 1.7:
+                # Activar dibujo si índice y medio están juntos
+                if distance < PROXIMITY_THRESHOLD:
                     is_drawing = True
-                    is_erasing = False
-                    print("Dibujo activado")
                 else:
                     is_drawing = False
-                    is_erasing = False
-                    last_point = None  # Reiniciar la última posición
-                    print("Dibujo y borrado desactivados")
+                    last_point = None
+                    start_point = None
 
-                # Dibujar o borrar según el estado actual
+                # Dibujar según el estado actual
                 if is_drawing:
-                    if last_point is not None:
-                        cv2.line(drawing_board, last_point, index_finger_coords, (0, 255, 0), 15)
-                    last_point = index_finger_coords
-                elif is_erasing:
-                    if last_point is not None:
-                        cv2.line(drawing_board, last_point, middle_finger_coords, (0, 0, 0), 40)
-                    last_point = index_finger_coords
+                    if start_point is None:
+                        start_point = index_coords
+                    else:
+                        start_point = (
+                            int(start_point[0] + (index_coords[0] - start_point[0]) * SMOOTHING_FACTOR),
+                            int(start_point[1] + (index_coords[1] - start_point[1]) * SMOOTHING_FACTOR)
+                        )
+                        cv2.line(canvas, last_point if last_point else start_point, start_point, (0, 0, 0), 5)
+                    last_point = start_point
 
-        # Superponer la imagen de dibujo sobre el frame original
-        combined_frame = cv2.addWeighted(frame, 1, drawing_board, 0.5, 1)
+                # Dibujar un puntero flotante
+                cv2.line(frame, (index_coords[0] - 10, index_coords[1]),
+                         (index_coords[0] + 10, index_coords[1]), (0, 0, 255), 2)
+                cv2.line(frame, (index_coords[0], index_coords[1] - 10),
+                         (index_coords[0], index_coords[1] + 10), (0, 0, 255), 2)
 
-        cv2.imshow("Frame", combined_frame)
-        if cv2.waitKey(1) & 0xFF == 27:  # Presiona 'ESC' para salir
+        # Extraer el área visible del lienzo
+        x, y = viewport_top_left
+        x_end = x + VIEWPORT_SIZE[1]
+        y_end = y + VIEWPORT_SIZE[0]
+        viewport = canvas[y:y_end, x:x_end]
+
+        # Combinar la vista flotante con el área visible
+        combined_view = frame.copy()
+        combined_view[0:VIEWPORT_SIZE[0], 0:VIEWPORT_SIZE[1]] = cv2.addWeighted(
+            frame[0:VIEWPORT_SIZE[0], 0:VIEWPORT_SIZE[1]],
+            0.5,
+            viewport,
+            0.5,
+            0
+        )
+
+        # Mostrar la vista combinada
+        cv2.imshow("Hoja de trabajo", combined_view)
+
+        # Manejo de teclas
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27:  # Salir con 'ESC'
             break
+        elif key == ord('c'):  # Limpiar lienzo
+            canvas.fill(255)
+        elif key == ord('s'):  # Guardar imagen
+            cv2.imwrite("hoja_de_trabajo.png", canvas)
 
 cap.release()
 cv2.destroyAllWindows()
