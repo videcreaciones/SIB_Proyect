@@ -7,6 +7,29 @@ def calculate_distance(point1, point2):
     """Calcula la distancia euclidiana entre dos puntos"""
     return sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
+def is_thumb_inside_palm(hand_landmarks):
+    """
+    Verifica si el pulgar está dentro de la región formada por los puntos 5, 18, 0 y 2.
+    """
+    thumb_tip = hand_landmarks.landmark[4]  # Punta del pulgar
+    point_5 = hand_landmarks.landmark[5]
+    point_18 = hand_landmarks.landmark[18]
+    point_0 = hand_landmarks.landmark[0]
+    point_2 = hand_landmarks.landmark[2]
+
+    # Coordenadas en píxeles del pulgar
+    thumb_x, thumb_y = thumb_tip.x, thumb_tip.y
+
+    # Calcular límites de la región
+    min_x = min(point_5.x, point_18.x, point_0.x, point_2.x)
+    max_x = max(point_5.x, point_18.x, point_0.x, point_2.x)
+    min_y = min(point_5.y, point_18.y, point_0.y, point_2.y)
+    max_y = max(point_5.y, point_18.y, point_0.y, point_2.y)
+
+    # Verificar si el pulgar está dentro de los límites
+    return min_x <= thumb_x <= max_x and min_y <= thumb_y <= max_y
+
+
 def is_shaka_gesture(hand_landmarks, width, height):
     """Detecta si la mano hace la seña 🤙."""
     thumb_tip = hand_landmarks.landmark[4]
@@ -38,7 +61,7 @@ def is_shaka_gesture(hand_landmarks, width, height):
 SMOOTHING_FACTOR = 0.35
 CANVAS_SIZE = (1200, 1800, 3)  # Tamaño del lienzo (alto, ancho, canales)
 VIEWPORT_SIZE = (480, 640)  # Tamaño del área visible
-PROXIMITY_THRESHOLD = 32  # Umbral para los dedos índice y medio
+PROXIMITY_THRESHOLD = 35  # Umbral para los dedos índice y medio
 SCROLL_STEP = 20  # Paso de desplazamiento
 
 # Inicializar lienzo y variables
@@ -69,7 +92,9 @@ with (mp_hands.Hands(
 
         # Procesar resultados de detección
         if results.multi_hand_landmarks:
+
             for hand_landmarks in results.multi_hand_landmarks:
+
                 # Detectar la seña 🤙
                 if is_shaka_gesture(hand_landmarks, width, height):
                     hand_center_x = int(hand_landmarks.landmark[9].x * width)
@@ -102,6 +127,7 @@ with (mp_hands.Hands(
                 Pinki_up = None
                 Index_up = None
                 Midle_up = None
+
 
                 #Comprobar si el dedo gordo esta levantado o no
 
@@ -140,6 +166,16 @@ with (mp_hands.Hands(
                 else:
                     Index_up = False
 
+                # Lógica de borrado
+                thumb_inside = is_thumb_inside_palm(hand_landmarks)
+                all_fingers_up = Index_up and Midle_up and Ring_up and Pinki_up
+
+                if thumb_inside and all_fingers_up:
+                    index_coords = (int(hand_landmarks.landmark[8].x * width),
+                                    int(hand_landmarks.landmark[8].y * height))
+                    cv2.circle(canvas, index_coords, 30, (255, 255, 255), -1)
+                    cv2.circle(frame, index_coords, 30, (0, 0, 255), 2)  # Indicador visual
+
                 # Activar dibujo si índice y medio están juntos
                 if Midle_up == True and Index_up == True and Thumb_up == False and Ring_up == False and Pinki_up == False and distance < PROXIMITY_THRESHOLD:
                     is_drawing = True
@@ -165,6 +201,7 @@ with (mp_hands.Hands(
                          (index_coords[0] + 10, index_coords[1]), (0, 0, 255), 2)
                 cv2.line(frame, (index_coords[0], index_coords[1] - 10),
                          (index_coords[0], index_coords[1] + 10), (0, 0, 255), 2)
+
 
         # Extraer el área visible del lienzo
         x, y = viewport_top_left
@@ -193,6 +230,8 @@ with (mp_hands.Hands(
             canvas.fill(255)
         elif key == ord('s'):  # Guardar imagen
             cv2.imwrite("hoja_de_trabajo.png", canvas)
+
+
 
 cap.release()
 cv2.destroyAllWindows()
