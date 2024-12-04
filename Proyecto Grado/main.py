@@ -38,7 +38,7 @@ def is_shaka_gesture(hand_landmarks, width, height):
 SMOOTHING_FACTOR = 0.35
 CANVAS_SIZE = (1200, 1800, 3)  # Tamaño del lienzo (alto, ancho, canales)
 VIEWPORT_SIZE = (480, 640)  # Tamaño del área visible
-PROXIMITY_THRESHOLD = 35  # Umbral para los dedos índice y medio
+PROXIMITY_THRESHOLD = 32  # Umbral para los dedos índice y medio
 SCROLL_STEP = 20  # Paso de desplazamiento
 
 # Inicializar lienzo y variables
@@ -94,36 +94,54 @@ with (mp_hands.Hands(
                 # Calcular distancia entre índice y medio
                 distance = calculate_distance(index_coords, middle_coords)
 
-                #verificar si la posición de los dedos es arriba o abajo
-                Ring = 0.5
-                Thumb = 0.5
-                Pinki = 0.5
+
+                """________ Verificar Posición De Los Dedos ________"""
+
+                Ring_up = None
+                Thumb_up = None
+                Pinki_up = None
+                Index_up = None
+                Midle_up = None
 
                 #Comprobar si el dedo gordo esta levantado o no
 
                 if hand_landmarks.landmark[14].y > hand_landmarks.landmark[4].y:
-                    Thumb = 0
-                    #print("Gordo" + str (Thumb))
+                    Thumb_up = True
+                    print("Gordo" + str (Thumb_up))
                 else:
-                    Thumb = 1
-                   # print(Thumb)
+                    Thumb_up = False
+                   # print(Thumb_up)
 
                 #Comprobar si el dedo anular esta levantado o no
 
                 if hand_landmarks.landmark[13].y > hand_landmarks.landmark[16].y:
-                    Ring = 0
+                    Ring_up = True
                 else:
-                    Ring = 1
+                    Ring_up = False
 
                 #Comprobar si el dedo meñique esta levantado o no
 
                 if hand_landmarks.landmark[17].y > hand_landmarks.landmark[20].y:
-                    Pinki = 0
+                    Pinki_up = True
                 else:
-                    Pinki = 1
+                    Pinki_up = False
+
+                #comprobar si el medio esta levantado o no
+
+                if hand_landmarks.landmark[9].y > hand_landmarks.landmark[12].y:
+                    Midle_up = True
+                else:
+                    Midle_up = False
+
+                #Comprobar si el dedo indice esta levantado o no
+
+                if hand_landmarks.landmark[5].y > hand_landmarks.landmark[8].y:
+                    Index_up = True
+                else:
+                    Index_up = False
 
                 # Activar dibujo si índice y medio están juntos
-                if Thumb == 1 and Ring == 1 and Pinki == 1 and distance < PROXIMITY_THRESHOLD:
+                if Midle_up == True and Index_up == True and Thumb_up == False and Ring_up == False and Pinki_up == False and distance < PROXIMITY_THRESHOLD:
                     is_drawing = True
                 else:
                     is_drawing = False
