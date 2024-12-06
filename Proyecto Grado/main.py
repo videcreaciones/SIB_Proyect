@@ -1,7 +1,12 @@
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog
+from PyQt6.QtGui import QPixmap, QPainter, QImage, QFont, QColor
+from PyQt6.QtCore import Qt
 import cv2
-import mediapipe as mp
 import numpy as np
+import os
+import sys
 from math import sqrt
+import mediapipe as mp
 
 def calculate_distance(point1, point2):
     """Calcula la distancia euclidiana entre dos puntos"""
@@ -29,6 +34,73 @@ def is_thumb_inside_palm(hand_landmarks):
     # Verificar si el pulgar está dentro de los límites
     return min_x <= thumb_x <= max_x and min_y <= thumb_y <= max_y
 
+CANVAS_DIR = "lienzos"
+
+# Crear el directorio si no existe
+if not os.path.exists(CANVAS_DIR):
+    os.makedirs(CANVAS_DIR)
+
+
+def save_canvas(canvas):
+    """Guarda el lienzo actual en formato .png o .npy con un nombre personalizado."""
+    format_choice = input("Seleccione el formato para guardar (png/npy): ").strip().lower()
+    if format_choice not in ["png", "npy"]:
+        print("Formato no válido. Se usará .npy por defecto.")
+        format_choice = "npy"
+
+    # Pedir nombre del archivo sin extensión
+    filename = input("Ingrese el nombre del lienzo (sin extensión): ").strip()
+    if not filename:
+        print("Nombre inválido. Usando 'lienzo_guardado' por defecto.")
+        filename = "lienzo_guardado"
+
+    # Agregar extensión al nombre del archivo
+    filepath = os.path.join(CANVAS_DIR, f"{filename}.{format_choice}")
+
+    if format_choice == "png":
+        cv2.imwrite(filepath, canvas)
+        print(f"Lienzo guardado como imagen en {filepath}")
+    elif format_choice == "npy":
+        np.save(filepath, canvas)
+        print(f"Lienzo guardado en {filepath}")
+
+
+def list_canvases():
+    """Lista todos los lienzos disponibles en el directorio en formatos .npy y .png."""
+    files = [f for f in os.listdir(CANVAS_DIR) if f.endswith(".npy") or f.endswith(".png")]
+    if not files:
+        print("No hay lienzos guardados.")
+        return []
+    print("Lienzos disponibles:")
+    for i, file in enumerate(files, start=1):
+        print(f"{i}. {file}")
+    return files
+
+def load_canvas():
+    """Permite seleccionar y cargar un lienzo desde el directorio en formatos .npy o .png."""
+    files = list_canvases()
+    if not files:
+        return None
+    try:
+        choice = int(input("Seleccione el número del lienzo que desea cargar: "))
+        if 1 <= choice <= len(files):
+            filepath = os.path.join(CANVAS_DIR, files[choice - 1])
+            if filepath.endswith(".npy"):
+                loaded_canvas = np.load(filepath)
+                print(f"Lienzo cargado desde {filepath}")
+            elif filepath.endswith(".png"):
+                loaded_canvas = cv2.imread(filepath)
+                if loaded_canvas is not None:
+                    print(f"Lienzo cargado desde {filepath}")
+                else:
+                    print(f"Error al cargar la imagen {filepath}")
+                    return None
+            return loaded_canvas
+        else:
+            print("Selección inválida.")
+    except ValueError:
+        print("Por favor, ingrese un número válido.")
+    return None
 
 def is_shaka_gesture(hand_landmarks, width, height):
     """Detecta si la mano hace la seña 🤙."""
@@ -58,7 +130,7 @@ def is_shaka_gesture(hand_landmarks, width, height):
     return thumb_extended and pinky_extended and index_bent and middle_bent and ring_bent
 
 # Parámetros
-SMOOTHING_FACTOR = 0.35
+SMOOTHING_FACTOR = 0.5  # Estabilizador
 CANVAS_SIZE = (1200, 1800, 3)  # Tamaño del lienzo (alto, ancho, canales)
 VIEWPORT_SIZE = (480, 640)  # Tamaño del área visible
 PROXIMITY_THRESHOLD = 35  # Umbral para los dedos índice y medio
@@ -171,9 +243,11 @@ with (mp_hands.Hands(
                 all_fingers_up = Index_up and Midle_up and Ring_up and Pinki_up
 
                 if thumb_inside and all_fingers_up:
-                    index_coords = (int(hand_landmarks.landmark[8].x * width),
-                                    int(hand_landmarks.landmark[8].y * height))
-                    cv2.circle(canvas, index_coords, 30, (255, 255, 255), -1)
+                    adjusted_index_coords = (
+                        index_coords[0] + viewport_top_left[0],
+                        index_coords[1] + viewport_top_left[1]
+                    )
+                    cv2.circle(canvas, adjusted_index_coords, 30, (255, 255, 255), -1)
                     cv2.circle(frame, index_coords, 30, (0, 0, 255), 2)  # Indicador visual
 
                 # Activar dibujo si índice y medio están juntos
@@ -185,13 +259,20 @@ with (mp_hands.Hands(
                     start_point = None
 
                 # Dibujar según el estado actual
+                # Ajustar las coordenadas del índice al área visible actual
+                adjusted_index_coords = (
+                    index_coords[0] + viewport_top_left[0],
+                    index_coords[1] + viewport_top_left[1]
+                )
+
+                # Dibujar según el estado actual
                 if is_drawing:
                     if start_point is None:
-                        start_point = index_coords
+                        start_point = adjusted_index_coords
                     else:
                         start_point = (
-                            int(start_point[0] + (index_coords[0] - start_point[0]) * SMOOTHING_FACTOR),
-                            int(start_point[1] + (index_coords[1] - start_point[1]) * SMOOTHING_FACTOR)
+                            int(start_point[0] + (adjusted_index_coords[0] - start_point[0]) * SMOOTHING_FACTOR),
+                            int(start_point[1] + (adjusted_index_coords[1] - start_point[1]) * SMOOTHING_FACTOR)
                         )
                         cv2.line(canvas, last_point if last_point else start_point, start_point, (0, 0, 0), 5)
                     last_point = start_point
@@ -215,7 +296,7 @@ with (mp_hands.Hands(
             frame[0:VIEWPORT_SIZE[0], 0:VIEWPORT_SIZE[1]],
             0.5,
             viewport,
-            0.5,
+            0.5,   #Modificar opacidad del lienzo
             0
         )
 
@@ -228,8 +309,13 @@ with (mp_hands.Hands(
             break
         elif key == ord('c'):  # Limpiar lienzo
             canvas.fill(255)
-        elif key == ord('s'):  # Guardar imagen
-            cv2.imwrite("hoja_de_trabajo.png", canvas)
+        elif key == ord('s'):  # Guardar lienzo en formato .npy
+            save_canvas(canvas)
+        elif key == ord('l'):  # Cargar lienzo desde archivo .npy
+            loaded_canvas = load_canvas()
+            if loaded_canvas is not None:
+                canvas = loaded_canvas
+
 
 
 
