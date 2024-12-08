@@ -1,138 +1,183 @@
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QWidget, QLineEdit, QListWidget, QMessageBox
+)
+from PyQt6.QtCore import Qt
 import cv2
-import mediapipe as mp
 import numpy as np
-from math import acos, degrees
+import threading
+import os
+import sys
 
-def palm_centroid(coordinates_list):
-     coordinates = np.array(coordinates_list)
-     centroid = np.mean(coordinates, axis=0)
-     centroid = int(centroid[0]), int(centroid[1])
-     return centroid
+CANVAS_DIR = "lienzos"
 
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-mp_hands = mp.solutions.hands
+# Crear el directorio si no existe
+if not os.path.exists(CANVAS_DIR):
+    os.makedirs(CANVAS_DIR)
 
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+canvas = np.ones((480, 640, 3), dtype=np.uint8) * 255
 
-# Pulgar
-thumb_points = [1, 2, 4]
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Gestión de Lienzos")
 
-# Índice, medio, anular y meñique
-palm_points = [0, 1, 2, 5, 9, 13, 17]
-fingertips_points = [8, 12, 16, 20]
-finger_base_points =[6, 10, 14, 18]
+        # Layout principal
+        self.layout = QVBoxLayout()
 
-# Colores
-GREEN = (48, 255, 48)
-BLUE = (192, 101, 21)
-YELLOW = (0, 204, 255)
-PURPLE = (128, 64, 128)
-PEACH = (180, 229, 255)
-with mp_hands.Hands(
-        model_complexity=1,
-        max_num_hands=1,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as hands:
+        # Botones de menú
+        self.save_button = QPushButton("Guardar Lienzo")
+        self.save_button.clicked.connect(self.save_canvas_window)
+        self.layout.addWidget(self.save_button)
+
+        self.load_button = QPushButton("Cargar Lienzo")
+        self.load_button.clicked.connect(self.load_canvas_window)
+        self.layout.addWidget(self.load_button)
+
+        self.quit_button = QPushButton("Salir")
+        self.quit_button.clicked.connect(self.close)
+        self.layout.addWidget(self.quit_button)
+
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+    def save_canvas_window(self):
+        self.save_window = SaveCanvasWindow()
+        self.save_window.show()
+
+    def load_canvas_window(self):
+        self.load_window = LoadCanvasWindow()
+        self.load_window.show()
+
+class SaveCanvasWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Guardar Lienzo")
+
+        # Layout principal
+        self.layout = QVBoxLayout()
+
+        # Selección de formato
+        self.format_label = QLabel("Seleccione el formato para guardar (png/npy):")
+        self.layout.addWidget(self.format_label)
+
+        self.png_button = QPushButton("PNG")
+        self.png_button.clicked.connect(lambda: self.save_canvas("png"))
+        self.layout.addWidget(self.png_button)
+
+        self.npy_button = QPushButton("NPY")
+        self.npy_button.clicked.connect(lambda: self.save_canvas("npy"))
+        self.layout.addWidget(self.npy_button)
+
+        # Entrada para nombre del archivo
+        self.name_label = QLabel("Ingrese el nombre del lienzo:")
+        self.layout.addWidget(self.name_label)
+
+        self.name_input = QLineEdit()
+        self.layout.addWidget(self.name_input)
+
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+    def save_canvas(self, format_choice):
+        global canvas
+        filename = self.name_input.text().strip()
+        if not filename:
+            QMessageBox.warning(self, "Error", "El nombre del archivo no puede estar vacío.")
+            return
+
+        filepath = os.path.join(CANVAS_DIR, f"{filename}.{format_choice}")
+        if format_choice == "png":
+            cv2.imwrite(filepath, canvas)
+        elif format_choice == "npy":
+            np.save(filepath, canvas)
+
+        QMessageBox.information(self, "Éxito", f"Lienzo guardado como {filepath}")
+        self.close()
+
+class LoadCanvasWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Cargar Lienzo")
+
+        # Layout principal
+        self.layout = QVBoxLayout()
+
+        # Lista de lienzos disponibles
+        self.list_label = QLabel("Seleccione el número del lienzo que desea cargar:")
+        self.layout.addWidget(self.list_label)
+
+        self.lienzo_list = QListWidget()
+        self.layout.addWidget(self.lienzo_list)
+
+        # Rellenar la lista
+        self.load_canvas_list()
+
+        # Botón de carga
+        self.load_button = QPushButton("Cargar")
+        self.load_button.clicked.connect(self.load_selected_canvas)
+        self.layout.addWidget(self.load_button)
+
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+    def load_canvas_list(self):
+        files = [f for f in os.listdir(CANVAS_DIR) if f.endswith(".npy") or f.endswith(".png")]
+        self.lienzo_list.addItems(files)
+
+    def load_selected_canvas(self):
+        global canvas
+        selected_item = self.lienzo_list.currentItem()
+        if not selected_item:
+            QMessageBox.warning(self, "Error", "Debe seleccionar un lienzo.")
+            return
+
+        filepath = os.path.join(CANVAS_DIR, selected_item.text())
+        if filepath.endswith(".npy"):
+            canvas = np.load(filepath)
+        elif filepath.endswith(".png"):
+            canvas = cv2.imread(filepath)
+
+        QMessageBox.information(self, "Éxito", f"Lienzo cargado desde {filepath}")
+        self.close()
+
+# Función para mostrar el video y el lienzo
+def show_video():
+    global canvas
+    cap = cv2.VideoCapture(0)
+
     while True:
         ret, frame = cap.read()
-        if ret == False:
+        if not ret:
             break
+
         frame = cv2.flip(frame, 1)
-        height, width, _ = frame.shape
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = hands.process(frame_rgb)
-        fingers_counter = "_"
-        thickness = [2, 2, 2, 2, 2]
+        combined_view = cv2.addWeighted(frame, 0.5, canvas, 0.5, 0)
+        cv2.imshow("Hoja de Trabajo", combined_view)
 
-        if results.multi_hand_landmarks:
-            coordinates_thumb = []
-            coordinates_palm = []
-            coordinates_ft = []
-            coordinates_fb = []
-            for hand_landmarks in results.multi_hand_landmarks:
-                for index in thumb_points:
-                    x = int(hand_landmarks.landmark[index].x * width)
-                    y = int(hand_landmarks.landmark[index].y * height)
-                    coordinates_thumb.append([x, y])
-
-                for index in palm_points:
-                    x = int(hand_landmarks.landmark[index].x * width)
-                    y = int(hand_landmarks.landmark[index].y * height)
-                    coordinates_palm.append([x, y])
-
-                for index in fingertips_points:
-                    x = int(hand_landmarks.landmark[index].x * width)
-                    y = int(hand_landmarks.landmark[index].y * height)
-                    coordinates_ft.append([x, y])
-
-                for index in finger_base_points:
-                    x = int(hand_landmarks.landmark[index].x * width)
-                    y = int(hand_landmarks.landmark[index].y * height)
-                    coordinates_fb.append([x, y])
-                ##########################
-                # Pulgar
-                p1 = np.array(coordinates_thumb[0])
-                p2 = np.array(coordinates_thumb[1])
-                p3 = np.array(coordinates_thumb[2])
-
-                l1 = np.linalg.norm(p2 - p3)
-                l2 = np.linalg.norm(p1 - p3)
-                l3 = np.linalg.norm(p1 - p2)
-
-                # Calcular el ángulo
-                angle = degrees(acos((l1 ** 2 + l3 ** 2 - l2 ** 2) / (2 * l1 * l3)))
-                thumb_finger = np.array(False)
-                if angle > 150:
-                    thumb_finger = np.array(True)
-
-                ################################
-                # Índice, medio, anular y meñique
-                nx, ny = palm_centroid(coordinates_palm)
-                cv2.circle(frame, (nx, ny), 3, (0, 255, 0), 2)
-                coordinates_centroid = np.array([nx, ny])
-                coordinates_ft = np.array(coordinates_ft)
-                coordinates_fb = np.array(coordinates_fb)
-
-                # Distancias
-                d_centrid_ft = np.linalg.norm(coordinates_centroid - coordinates_ft, axis=1)
-                d_centrid_fb = np.linalg.norm(coordinates_centroid - coordinates_fb, axis=1)
-                dif = d_centrid_ft - d_centrid_fb
-                fingers = dif > 0
-                fingers = np.append(thumb_finger, fingers)
-                fingers_counter = str(np.count_nonzero(fingers == True))
-                for (i, finger) in enumerate(fingers):
-                    if finger == True:
-                        thickness[i] = -1
-
-                mp_drawing.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    mp_hands.HAND_CONNECTIONS,
-                    mp_drawing_styles.get_default_hand_landmarks_style(),
-                    mp_drawing_styles.get_default_hand_connections_style())
-            ################################
-            # Visualización
-        cv2.rectangle(frame, (0, 0), (80, 80), (125, 220, 0), -1)
-        cv2.putText(frame, fingers_counter, (15, 65), 1, 5, (255, 255, 255), 2)
-        # Pulgar
-        cv2.rectangle(frame, (100, 10), (150, 60), PEACH, thickness[0])
-        cv2.putText(frame, "Pulgar", (100, 80), 1, 1, (255, 255, 255), 2)
-        # Índice
-        cv2.rectangle(frame, (160, 10), (210, 60), PURPLE, thickness[1])
-        cv2.putText(frame, "Indice", (160, 80), 1, 1, (255, 255, 255), 2)
-        # Medio
-        cv2.rectangle(frame, (220, 10), (270, 60), YELLOW, thickness[2])
-        cv2.putText(frame, "Medio", (220, 80), 1, 1, (255, 255, 255), 2)
-        # Anular
-        cv2.rectangle(frame, (280, 10), (330, 60), GREEN, thickness[3])
-        cv2.putText(frame, "Anular", (280, 80), 1, 1, (255, 255, 255), 2)
-        # Menique
-        cv2.rectangle(frame, (340, 10), (390, 60), BLUE, thickness[4])
-        cv2.putText(frame, "Menique", (340, 80), 1, 1, (255, 255, 255), 2)
-
-        cv2.imshow("Frame", frame)
-        if cv2.waitKey(1) & 0xFF == 27:
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27:  # Salir con 'ESC'
             break
-cap.release()
-cv2.destroyAllWindows()
+        elif key == ord('c'):  # Limpiar lienzo
+            canvas.fill(255)
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    # Crear y mostrar la ventana principal en un hilo separado
+    main_window = MainWindow()
+
+    video_thread = threading.Thread(target=show_video, daemon=True)
+    video_thread.start()
+
+    main_window.show()
+    sys.exit(app.exec())

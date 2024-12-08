@@ -7,6 +7,11 @@ import os
 import sys
 from math import sqrt
 import mediapipe as mp
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QWidget, QLineEdit, QListWidget, QMessageBox
+)
+import threading
 
 def calculate_distance(point1, point2):
     """Calcula la distancia euclidiana entre dos puntos"""
@@ -34,73 +39,178 @@ def is_thumb_inside_palm(hand_landmarks):
     # Verificar si el pulgar está dentro de los límites
     return min_x <= thumb_x <= max_x and min_y <= thumb_y <= max_y
 
+
 CANVAS_DIR = "lienzos"
 
 # Crear el directorio si no existe
 if not os.path.exists(CANVAS_DIR):
     os.makedirs(CANVAS_DIR)
 
+canvas = np.ones((480, 640, 3), dtype=np.uint8) * 255
 
-def save_canvas(canvas):
-    """Guarda el lienzo actual en formato .png o .npy con un nombre personalizado."""
-    format_choice = input("Seleccione el formato para guardar (png/npy): ").strip().lower()
-    if format_choice not in ["png", "npy"]:
-        print("Formato no válido. Se usará .npy por defecto.")
-        format_choice = "npy"
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Gestión de Lienzos")
 
-    # Pedir nombre del archivo sin extensión
-    filename = input("Ingrese el nombre del lienzo (sin extensión): ").strip()
-    if not filename:
-        print("Nombre inválido. Usando 'lienzo_guardado' por defecto.")
-        filename = "lienzo_guardado"
+        # Layout principal
+        self.layout = QVBoxLayout()
 
-    # Agregar extensión al nombre del archivo
-    filepath = os.path.join(CANVAS_DIR, f"{filename}.{format_choice}")
+        # Botones de menú
+        self.save_button = QPushButton("Guardar Lienzo")
+        self.save_button.clicked.connect(self.save_canvas_window)
+        self.layout.addWidget(self.save_button)
 
-    if format_choice == "png":
-        cv2.imwrite(filepath, canvas)
-        print(f"Lienzo guardado como imagen en {filepath}")
-    elif format_choice == "npy":
-        np.save(filepath, canvas)
-        print(f"Lienzo guardado en {filepath}")
+        self.load_button = QPushButton("Cargar Lienzo")
+        self.load_button.clicked.connect(self.load_canvas_window)
+        self.layout.addWidget(self.load_button)
 
+        self.quit_button = QPushButton("Salir")
+        self.quit_button.clicked.connect(self.close)
+        self.layout.addWidget(self.quit_button)
 
-def list_canvases():
-    """Lista todos los lienzos disponibles en el directorio en formatos .npy y .png."""
-    files = [f for f in os.listdir(CANVAS_DIR) if f.endswith(".npy") or f.endswith(".png")]
-    if not files:
-        print("No hay lienzos guardados.")
-        return []
-    print("Lienzos disponibles:")
-    for i, file in enumerate(files, start=1):
-        print(f"{i}. {file}")
-    return files
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
 
-def load_canvas():
-    """Permite seleccionar y cargar un lienzo desde el directorio en formatos .npy o .png."""
-    files = list_canvases()
-    if not files:
-        return None
-    try:
-        choice = int(input("Seleccione el número del lienzo que desea cargar: "))
-        if 1 <= choice <= len(files):
-            filepath = os.path.join(CANVAS_DIR, files[choice - 1])
-            if filepath.endswith(".npy"):
-                loaded_canvas = np.load(filepath)
-                print(f"Lienzo cargado desde {filepath}")
-            elif filepath.endswith(".png"):
-                loaded_canvas = cv2.imread(filepath)
-                if loaded_canvas is not None:
-                    print(f"Lienzo cargado desde {filepath}")
-                else:
-                    print(f"Error al cargar la imagen {filepath}")
-                    return None
-            return loaded_canvas
-        else:
-            print("Selección inválida.")
-    except ValueError:
-        print("Por favor, ingrese un número válido.")
-    return None
+    def save_canvas_window(self):
+        self.save_window = SaveCanvasWindow()
+        self.save_window.show()
+
+    def load_canvas_window(self):
+        self.load_window = LoadCanvasWindow()
+        self.load_window.show()
+
+class SaveCanvasWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Guardar Lienzo")
+
+        # Layout principal
+        self.layout = QVBoxLayout()
+
+        # Selección de formato
+        self.format_label = QLabel("Seleccione el formato para guardar (png/npy):")
+        self.layout.addWidget(self.format_label)
+
+        self.png_button = QPushButton("PNG")
+        self.png_button.clicked.connect(lambda: self.save_canvas("png"))
+        self.layout.addWidget(self.png_button)
+
+        self.npy_button = QPushButton("NPY")
+        self.npy_button.clicked.connect(lambda: self.save_canvas("npy"))
+        self.layout.addWidget(self.npy_button)
+
+        # Entrada para nombre del archivo
+        self.name_label = QLabel("Ingrese el nombre del lienzo:")
+        self.layout.addWidget(self.name_label)
+
+        self.name_input = QLineEdit()
+        self.layout.addWidget(self.name_input)
+
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+    def save_canvas(self, format_choice):
+        global canvas
+        filename = self.name_input.text().strip()
+        if not filename:
+            QMessageBox.warning(self, "Error", "El nombre del archivo no puede estar vacío.")
+            return
+
+        filepath = os.path.join(CANVAS_DIR, f"{filename}.{format_choice}")
+        if format_choice == "png":
+            cv2.imwrite(filepath, canvas)
+        elif format_choice == "npy":
+            np.save(filepath, canvas)
+
+        QMessageBox.information(self, "Éxito", f"Lienzo guardado como {filepath}")
+        self.close()
+
+class LoadCanvasWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Cargar Lienzo")
+
+        # Layout principal
+        self.layout = QVBoxLayout()
+
+        # Lista de lienzos disponibles
+        self.list_label = QLabel("Seleccione el número del lienzo que desea cargar:")
+        self.layout.addWidget(self.list_label)
+
+        self.lienzo_list = QListWidget()
+        self.layout.addWidget(self.lienzo_list)
+
+        # Rellenar la lista
+        self.load_canvas_list()
+
+        # Botón de carga
+        self.load_button = QPushButton("Cargar")
+        self.load_button.clicked.connect(self.load_selected_canvas)
+        self.layout.addWidget(self.load_button)
+
+        # Configuración del widget principal
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+    def load_canvas_list(self):
+        files = [f for f in os.listdir(CANVAS_DIR) if f.endswith(".npy") or f.endswith(".png")]
+        self.lienzo_list.addItems(files)
+
+    def load_selected_canvas(self):
+        global canvas
+        selected_item = self.lienzo_list.currentItem()
+        if not selected_item:
+            QMessageBox.warning(self, "Error", "Debe seleccionar un lienzo.")
+            return
+
+        filepath = os.path.join(CANVAS_DIR, selected_item.text())
+        if filepath.endswith(".npy"):
+            canvas = np.load(filepath)
+        elif filepath.endswith(".png"):
+            canvas = cv2.imread(filepath)
+
+        QMessageBox.information(self, "Éxito", f"Lienzo cargado desde {filepath}")
+        self.close()
+
+# Función para mostrar el video y el lienzo
+def show_video():
+    global canvas
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = cv2.flip(frame, 1)
+        combined_view = cv2.addWeighted(frame, 0.5, canvas, 0.5, 0)
+        cv2.imshow("Hoja de Trabajo", combined_view)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27:  # Salir con 'ESC'
+            break
+        elif key == ord('c'):  # Limpiar lienzo
+            canvas.fill(255)
+        elif key == ord('s'):  # Guardar lienzo
+            app = QApplication.instance() or QApplication(sys.argv)
+            save_window = SaveCanvasWindow()
+            save_window.show()
+            app.exec()
+        elif key == ord('l'):  # Cargar lienzo
+            app = QApplication.instance() or QApplication(sys.argv)
+            load_window = LoadCanvasWindow()
+            load_window.show()
+            app.exec()
+
+    cap.release()
+    cv2.destroyAllWindows()
+
 
 def is_shaka_gesture(hand_landmarks, width, height):
     """Detecta si la mano hace la seña 🤙."""
@@ -296,28 +406,26 @@ with (mp_hands.Hands(
             frame[0:VIEWPORT_SIZE[0], 0:VIEWPORT_SIZE[1]],
             0.5,
             viewport,
-            0.5,   #Modificar opacidad del lienzo
+            0.5,   # Modificar opacidad del lienzo
             0
         )
 
-        # Mostrar la vista combinada
-        cv2.imshow("Hoja de trabajo", combined_view)
+        # Mostrar la vista combinada en una ventana OpenCV
+        cv2.imshow("Hoja de Trabajo", combined_view)
 
-        # Manejo de teclas
+        # Manejo de teclas para interacciones
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # Salir con 'ESC'
             break
         elif key == ord('c'):  # Limpiar lienzo
             canvas.fill(255)
-        elif key == ord('s'):  # Guardar lienzo en formato .npy
-            save_canvas(canvas)
-        elif key == ord('l'):  # Cargar lienzo desde archivo .npy
-            loaded_canvas = load_canvas()
-            if loaded_canvas is not None:
-                canvas = loaded_canvas
-
-
-
-
-cap.release()
-cv2.destroyAllWindows()
+        elif key == ord('s'):  # Guardar lienzo
+            app = QApplication.instance() or QApplication(sys.argv)
+            save_window = SaveCanvasWindow()
+            save_window.show()
+            app.exec()
+        elif key == ord('l'):  # Cargar lienzo
+            app = QApplication.instance() or QApplication(sys.argv)
+            load_window = LoadCanvasWindow()
+            load_window.show()
+            app.exec()
