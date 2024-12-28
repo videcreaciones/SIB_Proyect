@@ -201,15 +201,18 @@ def show_video():
             app = QApplication.instance() or QApplication(sys.argv)
             save_window = SaveCanvasWindow()
             save_window.show()
-            app.exec()
+            app.exec()  # Ejecutar la ventana de guardado
+            save_window.close()
         elif key == ord('l'):  # Cargar lienzo
             app = QApplication.instance() or QApplication(sys.argv)
             load_window = LoadCanvasWindow()
             load_window.show()
-            app.exec()
+            app.exec()  # Ejecutar la ventana de carga
+            load_window.close()
 
     cap.release()
     cv2.destroyAllWindows()
+    QApplication.quit()  # Cierra el ciclo de eventos de PyQt
 
 
 def is_shaka_gesture(hand_landmarks, width, height):
@@ -256,7 +259,7 @@ last_hand_center = None
 
 mp_hands = mp.solutions.hands
 
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0)
 
 with (mp_hands.Hands(
         model_complexity=1,
