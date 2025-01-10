@@ -1,10 +1,9 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog
-from PyQt6.QtGui import QPixmap, QPainter, QImage, QFont, QColor
-from PyQt6.QtCore import Qt
+import tkinter as tk
 import cv2
 import numpy as np
 import os
 import sys
+import time
 from math import sqrt
 import mediapipe as mp
 from PyQt6.QtWidgets import (
@@ -12,6 +11,16 @@ from PyQt6.QtWidgets import (
     QWidget, QLineEdit, QListWidget, QMessageBox
 )
 import threading
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog
+from PyQt6.QtGui import QPixmap, QPainter, QImage, QFont, QColor
+from PyQt6.QtCore import Qt
+
+from screeninfo import get_monitors
+
+monitor = get_monitors()[0]
+ancho_pantalla = monitor.width
+alto_pantalla = monitor.height
+
 
 def calculate_distance(point1, point2):
     """Calcula la distancia euclidiana entre dos puntos"""
@@ -181,7 +190,22 @@ class LoadCanvasWindow(QMainWindow):
 # Función para mostrar el video y el lienzo
 def show_video():
     global canvas
+
+
+
+    # Configurar ventana para pantalla completa
+    cv2.namedWindow('Hoja de Trabajo', cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty('Hoja de Trabajo', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    # Alternativamente, usar cv2.resizeWindow para ajustar tamaño
+    cv2.resizeWindow('Hoja de Trabajo', ancho_pantalla, alto_pantalla)
+
     cap = cv2.VideoCapture(0)
+
+    ancho = 1280
+    alto = 720
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, ancho)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, alto)
 
     while True:
         ret, frame = cap.read()
@@ -190,6 +214,8 @@ def show_video():
 
         frame = cv2.flip(frame, 1)
         combined_view = cv2.addWeighted(frame, 0.5, canvas, 0.5, 0)
+
+        # Mostrar el video
         cv2.imshow("Hoja de Trabajo", combined_view)
 
         key = cv2.waitKey(1) & 0xFF
@@ -201,18 +227,19 @@ def show_video():
             app = QApplication.instance() or QApplication(sys.argv)
             save_window = SaveCanvasWindow()
             save_window.show()
-            app.exec()  # Ejecutar la ventana de guardado
+            app.exec()
             save_window.close()
         elif key == ord('l'):  # Cargar lienzo
             app = QApplication.instance() or QApplication(sys.argv)
             load_window = LoadCanvasWindow()
             load_window.show()
-            app.exec()  # Ejecutar la ventana de carga
+            app.exec()
             load_window.close()
 
     cap.release()
     cv2.destroyAllWindows()
-    QApplication.quit()  # Cierra el ciclo de eventos de PyQt
+    QApplication.quit()
+
 
 
 def is_shaka_gesture(hand_landmarks, width, height):
@@ -309,19 +336,41 @@ with (mp_hands.Hands(
 
                 Ring_up = None
                 Thumb_up = None
+                Thumb_up2 = None
                 Pinki_up = None
                 Index_up = None
                 Midle_up = None
 
+                Mano_Completa = None
+
+                Menu = False
+                x_threshold_show = 0.9  # Umbral para mostrar el menú
+                x_threshold_hide = 0.85  # Umbral para ocultar el menú
+                color_rect = (0, 255, 0)  # Verde para el rectángulo
+                screen_width = 800
+                screen_height = 600
+                menu_width = 300  # Ancho del menú
+                canvas_height = 600  # Alto del lienzo
 
                 #Comprobar si el dedo gordo esta levantado o no
 
                 if hand_landmarks.landmark[14].y > hand_landmarks.landmark[4].y:
                     Thumb_up = True
-                    print("Gordo" + str (Thumb_up))
+                    #print("Gordo" + str (Thumb_up))
                 else:
                     Thumb_up = False
                    # print(Thumb_up)
+
+                # Comprobar si el dedo gordo esta levantado 2
+
+                if hand_landmarks.landmark[13].y > hand_landmarks.landmark[4].y:
+                    Thumb_up2 = True
+                    #print("Gordo" + str (Thumb_up))
+                else:
+                    Thumb_up2 = False
+                   # print(Thumb_up)
+
+
 
                 #Comprobar si el dedo anular esta levantado o no
 
@@ -351,6 +400,82 @@ with (mp_hands.Hands(
                 else:
                     Index_up = False
 
+                if Index_up and Midle_up and Pinki_up and Ring_up and Thumb_up2 == True:
+                    Mano_Completa = True
+                else:
+                    Mano_Completa = False
+
+                Xindex = hand_landmarks.landmark[12].x
+                Yindex = hand_landmarks.landmark[12].y
+                tiempo_requerido = 1
+
+                if hand_landmarks.landmark[12].x > 0.8 and Menu == False and Mano_Completa == True :
+                    cv2.rectangle(frame, (1024, 2500), (500, 0), (64, 41, 4), -1)
+                    cv2.putText(frame, "Menu", (508, 60), 1, 3, (225, 250, 250), 5)
+                    print(hand_landmarks.landmark[8].x , hand_landmarks.landmark[12].y)
+
+                    Menu = True
+
+                    # Op 1
+                    cv2.rectangle(frame, (532, 101), (643, 155), (34, 89, 242), -1) #sombra
+                    cv2.rectangle(frame, (525, 100), (642, 150), (83, 92, 0), -1)
+                    cv2.putText(frame, "Guardar", (535, 135), 1, 1.5, (225, 250, 250), 4)
+
+                    Op1_x1, Op1_y1, Op1_x2, Op1_y2 = 0.890, 0.205, 1.5, 0.300 #coordenadas area op1
+                    Op1DentroArea = False #verifica si la mano esta dentro del area
+
+                    if Op1_x1 <= Xindex <= Op1_x2 and Op1_y1 <= Yindex <= Op1_y2:
+                        if not dentro_del_area:
+                            # Si el punto entra en el área, iniciar el temporizador
+                            tiempo_interno = time.time()  # Iniciar el conteo del tiempo
+                            dentro_del_area = True
+                            print(tiempo_interno)
+                    else:
+                        dentro_del_area = False  # Si el punto sale del área, reiniciar el temporizador
+
+                    if dentro_del_area and (time.time() - tiempo_interno) >= tiempo_requerido:
+                        print("Guardar")
+                        app = QApplication.instance() or QApplication(sys.argv)
+                        save_window = SaveCanvasWindow()
+                        save_window.show()
+                        app.exec()
+
+
+
+                    # Op 2
+                    cv2.rectangle(frame, (532, 181), (643, 235), (34, 89, 242), -1) #sombra
+                    cv2.rectangle(frame, (525, 180), (642, 230), (83, 92, 0), -1)
+
+                    Op2_x1, Op2_y1, Op2_x2, Op2_y2 = 0.890, 0.205, 1.5, 0.300  # coordenadas area op1
+                    Op1DentroArea = False  # verifica si la mano esta dentro del area
+
+                    if Op2_x1 <= Xindex <= Op2_x2 and Op2_y1 <= Yindex <= Op2_y2:
+                        if not dentro_del_area:
+                            # Si el punto entra en el área, iniciar el temporizador
+                            tiempo_interno = time.time()  # Iniciar el conteo del tiempo
+                            dentro_del_area = True
+                            print(tiempo_interno)
+                    else:
+                        dentro_del_area = False  # Si el punto sale del área, reiniciar el temporizador
+
+                    if dentro_del_area and (time.time() - tiempo_interno) >= tiempo_requerido:
+                        print("Guardar")
+                        app = QApplication.instance() or QApplication(sys.argv)
+                        save_window = SaveCanvasWindow()
+                        save_window.show()
+                        app.exec()
+
+                    # Op 3
+                    cv2.rectangle(frame, (532, 261), (643, 315), (34, 89, 242), -1) #sombra
+                    cv2.rectangle(frame, (525, 260), (642, 310), (83, 92, 0), -1)
+                    # Op 4
+                    cv2.rectangle(frame, (532, 341), (643, 395), (34, 89, 242), -1) #sombra
+                    cv2.rectangle(frame, (525, 340), (642, 390), (83, 92, 0), -1)
+
+                else:
+                    Menu = False
+
+
                 # Lógica de borrado
                 thumb_inside = is_thumb_inside_palm(hand_landmarks)
                 all_fingers_up = Index_up and Midle_up and Ring_up and Pinki_up
@@ -361,7 +486,7 @@ with (mp_hands.Hands(
                         index_coords[1] + viewport_top_left[1]
                     )
                     cv2.circle(canvas, adjusted_index_coords, 30, (255, 255, 255), -1)
-                    cv2.circle(frame, index_coords, 30, (0, 0, 255), 2)  # Indicador visual
+                    cv2.circle(frame, index_coords, 30, (0, 0, 0), 2)  # Indicador visual
 
                 # Activar dibujo si índice y medio están juntos
                 if Midle_up == True and Index_up == True and Thumb_up == False and Ring_up == False and Pinki_up == False and distance < PROXIMITY_THRESHOLD:
