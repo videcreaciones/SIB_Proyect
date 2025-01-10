@@ -24,3 +24,8 @@ pega el archivo de mutagen que te diga en el repo en la carpeta bin
 
 sudo chmod o-w /bin
 
+mutagen daemon start
+
+mutagen sync create --sync-mode=one-way-safe "D:\Mis documentos\Escritorio\Proyectos\PR-Grado\Proyecto_Grado" vyc@raspberrypi.local:/home/vyc/PR-Grado/Proyecto_Grado
+
+
