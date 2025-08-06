@@ -1,4 +1,3 @@
-import tkinter as tk
 import cv2
 import numpy as np
 import os
@@ -7,13 +6,10 @@ import time
 from math import sqrt
 import mediapipe as mp
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QVBoxLayout,
     QWidget, QLineEdit, QListWidget, QMessageBox
 )
-import threading
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog
-from PyQt6.QtGui import QPixmap, QPainter, QImage, QFont, QColor
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton
 
 from screeninfo import get_monitors
 
@@ -343,7 +339,9 @@ with (mp_hands.Hands(
 
                 Mano_Completa = None
 
-                Menu = False
+                Menu = 0
+
+
                 x_threshold_show = 0.9  # Umbral para mostrar el menú
                 x_threshold_hide = 0.85  # Umbral para ocultar el menú
                 color_rect = (0, 255, 0)  # Verde para el rectángulo
@@ -405,26 +403,75 @@ with (mp_hands.Hands(
                 else:
                     Mano_Completa = False
 
-                Xindex = hand_landmarks.landmark[12].x
-                Yindex = hand_landmarks.landmark[12].y
+                Xindex = hand_landmarks.landmark[12].x # coordenadas punta del dedo indice en x
+                Yindex = hand_landmarks.landmark[12].y # coordenadas punta del dedo indice en y
                 tiempo_requerido = 1
 
-                if hand_landmarks.landmark[12].x > 0.8 and Menu == False and Mano_Completa == True :
+                """
+                -------------------------------- Menu Inicial ----------------------------------
+                """
+
+                CheckMenu = True
+                GlobalMenu = 0
+
+                if GlobalMenu == 0 and hand_landmarks.landmark[12].x > 0.8 and Mano_Completa == True and CheckMenu == True:
+                    MenuChange(1)
+                elif Menu == 2 and hand_landmarks.landmark[12].x > 0.8 and Mano_Completa == True and CheckMenu == False:
+                    if Menu == 2 and hand_landmarks.landmark[12].x > 0.8 and Mano_Completa == True and CheckMenu == True:
+                        Menu =2
+                    else:
+                        Menu = 0
+
+
+
+
+                def MenuChange (Val):
+                    global GlobalMenu
+                    GlobalMenu = Val
+                    return GlobalMenu
+
+
+
+
+                if GlobalMenu == 1:
                     cv2.rectangle(frame, (1024, 2500), (500, 0), (64, 41, 4), -1)
                     cv2.putText(frame, "Menu", (508, 60), 1, 3, (225, 250, 250), 5)
-                    print(hand_landmarks.landmark[8].x , hand_landmarks.landmark[12].y)
+                    #print(hand_landmarks.landmark[8].x , hand_landmarks.landmark[12].y)
 
-                    Menu = True
+                    print(GlobalMenu)
+
+                    # Op 3
+                    cv2.rectangle(frame, (532, 261), (643, 315), (34, 89, 242), -1)  # sombra
+                    cv2.rectangle(frame, (525, 260), (642, 310), (83, 92, 0), -1)
+                    cv2.putText(frame, "Dibujo", (535, 295), 1, 1.5, (225, 250, 250), 4)
+
+                    Op3_x1, Op3_y1, Op3_x2, Op3_y2 = 0.880, 0.536, 1.5, 0.634  # coordenadas area op3
+                    Op3DentroArea = False  # verifica si la mano esta dentro del area
+
+                    if Op3_x1 <= Xindex <= Op3_x2 and Op3_y1 <= Yindex <= Op3_y2 and GlobalMenu == 1:
+                        if not dentro_del_area3:
+                            # Si el punto entra en el área, iniciar el temporizador
+                            tiempo_interno = time.time()  # Iniciar el conteo del tiempo
+                            dentro_del_area3 = True
+                            print(tiempo_interno)
+                    else:
+                        dentro_del_area3 = False  # Si el punto sale del área, reiniciar el temporizador
+
+                    if dentro_del_area3 and (time.time() - tiempo_interno) >= tiempo_requerido or Menu == 2:
+                        print("Dibujo")
+                        MenuChange(2)
+                        CheckMenu = False
 
                     # Op 1
+
                     cv2.rectangle(frame, (532, 101), (643, 155), (34, 89, 242), -1) #sombra
                     cv2.rectangle(frame, (525, 100), (642, 150), (83, 92, 0), -1)
                     cv2.putText(frame, "Guardar", (535, 135), 1, 1.5, (225, 250, 250), 4)
 
-                    Op1_x1, Op1_y1, Op1_x2, Op1_y2 = 0.890, 0.205, 1.5, 0.300 #coordenadas area op1
+                    Op1_x1, Op1_y1, Op1_x2, Op1_y2 = 0.880, 0.205, 1.5, 0.300 #coordenadas area op1
                     Op1DentroArea = False #verifica si la mano esta dentro del area
 
-                    if Op1_x1 <= Xindex <= Op1_x2 and Op1_y1 <= Yindex <= Op1_y2:
+                    if Op1_x1 <= Xindex <= Op1_x2 and Op1_y1 <= Yindex <= Op1_y2 and Menu == 1:
                         if not dentro_del_area:
                             # Si el punto entra en el área, iniciar el temporizador
                             tiempo_interno = time.time()  # Iniciar el conteo del tiempo
@@ -439,41 +486,67 @@ with (mp_hands.Hands(
                         save_window = SaveCanvasWindow()
                         save_window.show()
                         app.exec()
-
-
 
                     # Op 2
+
                     cv2.rectangle(frame, (532, 181), (643, 235), (34, 89, 242), -1) #sombra
                     cv2.rectangle(frame, (525, 180), (642, 230), (83, 92, 0), -1)
+                    cv2.putText(frame, "Cargar", (535, 215), 1, 1.5, (225, 250, 250), 4)
 
-                    Op2_x1, Op2_y1, Op2_x2, Op2_y2 = 0.890, 0.205, 1.5, 0.300  # coordenadas area op1
-                    Op1DentroArea = False  # verifica si la mano esta dentro del area
+                    Op2_x1, Op2_y1, Op2_x2, Op2_y2 = 0.880, 0.358, 1.5, 0.453  # coordenadas area op2
+                    Op2DentroArea = False  # verifica si la mano esta dentro del area
 
-                    if Op2_x1 <= Xindex <= Op2_x2 and Op2_y1 <= Yindex <= Op2_y2:
-                        if not dentro_del_area:
+                    if Op2_x1 <= Xindex <= Op2_x2 and Op2_y1 <= Yindex <= Op2_y2 and Menu == 1:
+                        if not dentro_del_area2:
                             # Si el punto entra en el área, iniciar el temporizador
                             tiempo_interno = time.time()  # Iniciar el conteo del tiempo
-                            dentro_del_area = True
+                            dentro_del_area2 = True
                             print(tiempo_interno)
                     else:
-                        dentro_del_area = False  # Si el punto sale del área, reiniciar el temporizador
+                        dentro_del_area2 = False  # Si el punto sale del área, reiniciar el temporizador
 
-                    if dentro_del_area and (time.time() - tiempo_interno) >= tiempo_requerido:
-                        print("Guardar")
+                    if dentro_del_area2 and (time.time() - tiempo_interno) >= tiempo_requerido:
+                        print("Cargar")
                         app = QApplication.instance() or QApplication(sys.argv)
-                        save_window = SaveCanvasWindow()
-                        save_window.show()
+                        load_window = LoadCanvasWindow()
+                        load_window.show()
                         app.exec()
 
-                    # Op 3
-                    cv2.rectangle(frame, (532, 261), (643, 315), (34, 89, 242), -1) #sombra
-                    cv2.rectangle(frame, (525, 260), (642, 310), (83, 92, 0), -1)
+
+
+
                     # Op 4
                     cv2.rectangle(frame, (532, 341), (643, 395), (34, 89, 242), -1) #sombra
                     cv2.rectangle(frame, (525, 340), (642, 390), (83, 92, 0), -1)
+                    cv2.putText(frame, "Limpiar", (535, 375), 1, 1.5, (225, 250, 250), 4)
 
-                else:
-                    Menu = False
+                    Op4_x1, Op4_y1, Op4_x2, Op4_y2 = 0.880, 0.694, 1.5, 0.789  # coordenadas area op4
+                    Op4DentroArea = False  # verifica si la mano esta dentro del area
+
+                    if Op4_x1 <= Xindex <= Op4_x2 and Op4_y1 <= Yindex <= Op4_y2 and Menu == 1:
+                        if not dentro_del_area4:
+                            # Si el punto entra en el área, iniciar el temporizador
+                            tiempo_interno = time.time()  # Iniciar el conteo del tiempo
+                            dentro_del_area4 = True
+                            #print(tiempo_interno)
+
+                    else:
+                        dentro_del_area4 = False  # Si el punto sale del área, reiniciar el temporizador
+
+                    if dentro_del_area4 and (time.time() - tiempo_interno) >= tiempo_requerido:
+                        print("Limpiar")
+                        canvas.fill(255)
+
+                    if GlobalMenu == 2:
+                        cv2.rectangle(frame, (1024, 2500), (500, 0), (64, 41, 4), -1)
+                        cv2.putText(frame, "Menu", (508, 60), 1, 3, (225, 250, 250), 5)
+                        #print(hand_landmarks.landmark[8].x, hand_landmarks.landmark[12].y)
+
+                        CheckMenu == False
+                    # Menu = 0
+
+                print(CheckMenu)
+
 
 
                 # Lógica de borrado
