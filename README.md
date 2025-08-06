@@ -101,7 +101,7 @@ El tablero inteligente se utiliza **únicamente mediante señas**. Las manos del
 
 ## 🤝 Autor
 
-**Chovengo**  
+**Salomon Jarro Ceron**  
 📧 chovengo2018@gmail.com  
 📞 +57 321 484 4125
 
@@ -109,8 +109,10 @@ El tablero inteligente se utiliza **únicamente mediante señas**. Las manos del
 
 ## 📜 Licencia
 
-Este proyecto aún no tiene una licencia definida. Puedes modificar o distribuir el código bajo tu propio riesgo.  
-(Si deseas agregar una licencia específica como MIT, GPL, etc., puedo ayudarte a incluirla).
+Copyright (c) 2025 [Salomon Jarro Ceron]
+
+Todos los derechos reservados.  
+Este proyecto no puede ser copiado, modificado, distribuido ni reutilizado sin permiso explícito del autor.  
 
 ---
 
