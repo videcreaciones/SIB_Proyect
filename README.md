@@ -6,7 +6,7 @@
   ____) |_| |_| |_) |
  |_____/|_____|____/ 
                     
-# Sign Inteligent Board
+# Sign Inteligent Board - S.I.B
 
 Este proyecto consiste en el desarrollo de un **Tablero Inteligente** que utiliza **Inteligencia Artificial de reconocimiento de imágenes** para fomentar el uso de las TIC en el aula. Funciona mediante **señas captadas por una cámara**, y está diseñado especialmente para facilitar dinámicas interactivas entre docentes y estudiantes.
 
