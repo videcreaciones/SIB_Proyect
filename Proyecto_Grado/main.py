@@ -66,7 +66,7 @@ os.makedirs(CANVAS_DIR, exist_ok=True)
 
 CANVAS_H, CANVAS_W = 1200, 1800
 PROXIMITY_THRESHOLD = 35
-HOVER_SECONDS = 0.9
+HOVER_SECONDS = 1.5
 
 COLOR_PRESETS = [
     (0, 0, 0), (0, 0, 255), (0, 255, 0),
@@ -326,15 +326,15 @@ def main():
 
         bx1 = px1 + 0 * ctrl_w + pad2
         bx2 = bx1 + ctrl_w - 2*pad2
-        items.append(("Regresar", (bx1/w, ctrl_y1/h, bx2/w, ctrl_y2/h), "panel_back"))
+        items.append(("Menu", (bx1/w, ctrl_y1/h, bx2/w, ctrl_y2/h), "panel_back"))
 
         pxl1 = px1 + 1 * ctrl_w + pad2
         pxl2 = pxl1 + ctrl_w - 2*pad2
-        items.append(("« Atrás", (pxl1/w, ctrl_y1/h, pxl2/w, ctrl_y2/h), "panel_prev"))
+        items.append(("Atras", (pxl1/w, ctrl_y1/h, pxl2/w, ctrl_y2/h), "panel_prev"))
 
         nxl1 = px1 + 2 * ctrl_w + pad2
         nxl2 = nxl1 + ctrl_w - 2*pad2
-        items.append(("Siguiente »", (nxl1/w, ctrl_y1/h, nxl2/w, ctrl_y2/h), "panel_next"))
+        items.append(("Siguiente", (nxl1/w, ctrl_y1/h, nxl2/w, ctrl_y2/h), "panel_next"))
 
         return items
 
@@ -504,7 +504,7 @@ def main():
                         for _,_,k in items:
                             hover_state.setdefault(k, {"inside": False, "t0": 0.0})
 
-                    fs = 0.8 * UI_SCALE
+                    fs = 0.6 * UI_SCALE
                     th_text = max(1, int(2 * UI_SCALE))
                     th_border = max(2, int(3 * UI_SCALE))
                     hover_bar_h = max(4, int(6 * UI_SCALE))
@@ -612,7 +612,7 @@ def main():
                     if set(panel_hover_state.keys()) != keys:
                         panel_hover_state = make_hover_state(panel_items)
 
-                    fs = 0.7 * UI_SCALE
+                    fs = 0.5 * UI_SCALE
                     th_text = max(1, int(2 * UI_SCALE))
                     th_border = max(2, int(3 * UI_SCALE))
                     hover_bar_h = max(4, int(6 * UI_SCALE))
@@ -657,7 +657,7 @@ def main():
                                         else:
                                             show_toast("No hay página siguiente", 1.2)
                                     elif key == "new_file" and panel_mode == "save":
-                                        stem = time.strftime("lienzo_%Y%m%d_%H%M%S")
+                                        stem = time.strftime("LZ_%m%d_%H%M")
                                         save_canvas_both(canvas, stem)
                                         cv2.putText(surface, f"Guardado: {stem}", (int(0.56*w), int(0.95*h)),
                                                     cv2.FONT_HERSHEY_SIMPLEX, fs, (0,255,0), th_text)
