@@ -2,7 +2,7 @@
   <img src="https://github.com/videcreaciones/SIB_Proyect/blob/main/banner.png?raw=true" alt="Sign Intelligent Board" width="800"/>
 </p>
 
-# 🧠 Sign Intelligent Board - S.I.B
+# Sign Intelligent Board - S.I.B
 
 **Sign Intelligent Board (S.I.B)** es un proyecto que implementa un **tablero inteligente con Inteligencia Artificial** para el reconocimiento de señas, con el objetivo de fomentar el uso de las TIC en el aula.  
 
@@ -126,6 +126,5 @@ Para más información sobre los gestos y funcionalidades, consulta la interfaz 
 
 **Salomón Jarro Cerón**  
 📧 [chovengo2018@gmail.com](mailto:chovengo2018@gmail.com)  
-📞 +57 321 484 4125  
 
 ---
