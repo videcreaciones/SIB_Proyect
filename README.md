@@ -1,27 +1,23 @@
+<p align="center">
+  <img src="https://github.com/videcreaciones/SIB_Proyect/blob/main/banner.png?raw=true" alt="Sign Intelligent Board" width="800"/>
+</p>
 
-   _____ _____ ____  
-  / ____|_   _|  _ \ 
- | (___   | | | |_) |
-  \___ \  | | |  _ < 
-  ____) |_| |_| |_) |
- |_____/|_____|____/ 
-                    
-# Sign Inteligent Board - S.I.B
+# 🧠 Sign Intelligent Board - S.I.B
 
-Este proyecto consiste en el desarrollo de un **Tablero Inteligente** que utiliza **Inteligencia Artificial de reconocimiento de imágenes** para fomentar el uso de las TIC en el aula. Funciona mediante **señas captadas por una cámara**, y está diseñado especialmente para facilitar dinámicas interactivas entre docentes y estudiantes.
+**Sign Intelligent Board (S.I.B)** es un proyecto que implementa un **tablero inteligente con Inteligencia Artificial** para el reconocimiento de señas, con el objetivo de fomentar el uso de las TIC en el aula.  
 
-El sistema corre sobre una **Raspberry Pi**, e integra procesamiento de imagen en tiempo real con una interfaz gráfica intuitiva.
+El sistema interpreta gestos mediante una cámara y ofrece una experiencia interactiva entre docentes y estudiantes, optimizando las dinámicas de enseñanza-aprendizaje.
 
 ---
 
 ## 🚀 Tecnologías utilizadas
 
-- **Python 3**
-- **OpenCV (cv2)**
-- **MediaPipe** (detección de manos)
-- **NumPy**
-- **PyQt6**
-- **Raspberry Pi OS**
+- Python 3  
+- OpenCV (`cv2`)  
+- MediaPipe (detección de manos)  
+- NumPy  
+- PyQt6  
+- Raspberry Pi OS / Windows / Linux  
 
 ---
 
@@ -38,14 +34,16 @@ SIB_Proyect/
 
 ---
 
-## ⚙️ Instalación en Raspberry Pi
+## ⚙️ Instalación y ejecución
+
+### 🔹 Opción 1: En Raspberry Pi
 
 1. **Clonar el repositorio**
    ```bash
-   git clone git@github.com:videcreaciones/PR-Grado.git
+   git clone git@github.com:videcreaciones/SIB_Proyect.git
    ```
 
-2. **Crear y activar entorno virtual**
+2. **Crear y activar un entorno virtual**
    ```bash
    python3 -m venv mano
    source mano/bin/activate
@@ -54,67 +52,80 @@ SIB_Proyect/
 3. **Instalar dependencias**
    ```bash
    python3 -m pip install --upgrade pip
-   pip install mediapipe
-   pip install numpy
-   pip install pyqt6 --only-binary :all:
+   pip install mediapipe numpy opencv-python pyqt6
    ```
 
-4. **Desactivar entorno**
+4. **Ejecutar el proyecto**
+   ```bash
+   cd Proyecto_Grado
+   python3 main.py
+   ```
+
+5. **Desactivar entorno (opcional)**
    ```bash
    deactivate
    ```
 
-5. **Actualizar e instalar herramientas**
+---
+
+### 🔹 Opción 2: En cualquier computadora (Windows/Linux)
+
+1. **Descargar o extraer el repositorio**
+   - Si descargaste el archivo `.zip`, extráelo en una carpeta local.  
+   - O clónalo directamente:
+     ```bash
+     git clone https://github.com/videcreaciones/SIB_Proyect.git
+     ```
+
+2. **Crear un entorno virtual**
+   - En Windows:
+     ```bash
+     python -m venv mano
+     mano\Scripts\activate
+     ```
+   - En Linux/Mac:
+     ```bash
+     python3 -m venv mano
+     source mano/bin/activate
+     ```
+
+3. **Instalar las librerías necesarias**
    ```bash
-   sudo apt update
-   sudo apt install build-essential curl file git
+   pip install --upgrade pip
+   pip install mediapipe numpy opencv-python pyqt6
    ```
 
-6. **Permitir escritura temporalmente en /bin**
+4. **Ejecutar el programa**
    ```bash
-   sudo chmod o+w /bin
+   cd Proyecto_Grado
+   python main.py
    ```
 
-7. **Agregar archivo `mutagen` en `/bin`**  
-   *(Consulta el repositorio para saber cuál es el archivo correcto)*
-
-8. **Restablecer permisos de /bin**
+5. **Cerrar el entorno**
    ```bash
-   sudo chmod o-w /bin
-   ```
-
-9. **Sincronizar con Mutagen**
-   ```bash
-   mutagen daemon start
-   mutagen sync create --sync-mode=one-way-safe "D:\Mis documentos\Escritorio\Proyectos\PR-Grado\Proyecto_Grado" vyc@raspberrypi.local:/home/vyc/PR-Grado/Proyecto_Grado
+   deactivate
    ```
 
 ---
 
-## 🧠 ¿Cómo se usa?
+## 🖐️ ¿Cómo se usa?
 
-El tablero inteligente se utiliza **únicamente mediante señas**. Las manos del usuario son captadas por la cámara y procesadas en tiempo real con MediaPipe. La interfaz gráfica muestra indicaciones e instrucciones específicas según la seña detectada.
+El sistema funciona únicamente por **señas**.  
+La cámara reconoce los movimientos de la mano en tiempo real y la interfaz gráfica responde según el gesto detectado.
 
-> Para más detalles sobre los gestos soportados, revisa la interfaz gráfica del proyecto o los documentos incluidos.
+- ✋ **Palma abierta** → abrir menú lateral  
+- 🤙 **Shake** → desplazarse en el tablero  
+- 👆 **Seña del indice y medio levantados** → dibujar ( separar los dedos para dejar de hacer el trazo.
+- ✊ **Puño cerrado** → borrar  
 
----
-
-## 🤝 Autor
-
-**Salomon Jarro Ceron**  
-📧 chovengo2018@gmail.com  
-📞 +57 321 484 4125
+Para más información sobre los gestos y funcionalidades, consulta la interfaz o los documentos del proyecto.
 
 ---
 
-## 📜 Licencia
+## 👨‍💻 Autor
 
-Copyright (c) 2025 [Salomon Jarro Ceron]
-
-Todos los derechos reservados.  
-Este proyecto no puede ser copiado, modificado, distribuido ni reutilizado sin permiso explícito del autor.  
+**Salomón Jarro Cerón**  
+📧 [chovengo2018@gmail.com](mailto:chovengo2018@gmail.com)  
+📞 +57 321 484 4125  
 
 ---
-
-¡Gracias por visitar el proyecto!  
-Cualquier colaboración, sugerencia o mejora es bienvenida.
